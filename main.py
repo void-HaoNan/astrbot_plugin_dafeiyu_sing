@@ -27,12 +27,6 @@ BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 MODEL_CN = {
     "luotianyi": "洛天依",
     "miku": "初音未来",
-    "tomori": "高松灯",
-    "uzuki": "卯月",
-    "guanguanV1": "关关",
-    "keruanV1": "可软",
-    "kikiV1": "琪琪",
-    "youzhanv2-xi": "有沾 v2",
 }
 
 
@@ -111,8 +105,33 @@ class DafeiyuSingPlugin(Star):
         }
 
     # ------------------------------------------------------------------ 音色
+    def _models_dir(self) -> Path | None:
+        raw = str(self._get("models_dir", "")).strip()
+        return Path(raw) if raw else None
+
+    def _import_models(self) -> None:
+        """把用户放进 models_dir 的 pth/index 导入 RVC 目录，文件名原样保留。"""
+        src = self._models_dir()
+        root = _detect_rvc()
+        if not src or not src.is_dir() or not root:
+            return
+        pkg = sorted(root.glob("pkg/*/assets/weights"))
+        weights = pkg[0] if pkg else root / "assets" / "weights"
+        indices = weights.parent / "indices"
+        weights.mkdir(parents=True, exist_ok=True)
+        indices.mkdir(parents=True, exist_ok=True)
+        for file in list(src.glob("*.pth")) + list(src.glob("*.index")):
+            target = (weights if file.suffix.lower() == ".pth" else indices) / file.name
+            try:
+                if not target.exists() or file.stat().st_mtime > target.stat().st_mtime:
+                    target.write_bytes(file.read_bytes())
+                    logger.info(f"[dafeiyu_sing] 导入音色 {file.name}")
+            except OSError as exc:
+                logger.warning(f"[dafeiyu_sing] 导入 {file.name} 失败: {exc}")
+
     def _scan_models(self) -> list[str]:
         """列出本机 RVC 里已有的音色名，不下载任何东西。"""
+        self._import_models()
         names: set[str] = set()
         root = _detect_rvc()
         if not root:
@@ -152,6 +171,7 @@ class DafeiyuSingPlugin(Star):
     async def initialize(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
         paths = self._paths()
+        self._import_models()
         models = self._scan_models()
         self._sync_schema_models()
         logger.info(f"[dafeiyu_sing] RVC={paths['rvc_root']} ffmpeg={paths['ffmpeg']} 音色={models}")

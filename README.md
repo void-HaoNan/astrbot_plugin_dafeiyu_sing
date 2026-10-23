@@ -33,7 +33,7 @@
 | `cooldown_seconds` | 同会话冷却 | `30` |
 | `out_keep_hours` | 成品保留小时 | `24` |
 
-RVC 目录、整合包和 ffmpeg 全自动找：从插件位置往上认 AstrBot 目录，找它旁边的 `rvc/pkg/*/runtime/python.exe`，ffmpeg 先找 `bin/ffmpeg.exe` 再用 PATH 里的。放别处可以设环境变量 `RVC_ROOT` 或 `FFMPEG` 覆盖。\n\n音色就是 RVC 整合包里 `assets/weights/<名字>.pth` 的名字。插件启动时会扫本机已有的 `.pth`，把名字写进设置页的下拉选项，不用手填；**不会自动下载模型**，想加音色就自己往 `assets/weights/` 放 pth，重启插件后下拉会更新。填了不存在的音色会自动回退到 auto。
+RVC 目录、整合包和 ffmpeg 全自动找：从插件位置往上认 AstrBot 目录，找它旁边的 `rvc/pkg/*/runtime/python.exe`，ffmpeg 先找 `bin/ffmpeg.exe` 再用 PATH 里的。放别处可以设环境变量 `RVC_ROOT` 或 `FFMPEG` 覆盖。\n\n支持的音色是 RVC 的 `.pth` 模型（可带同名 `.index`）。在设置里填「音色目录」，把 pth/index 丢进去，插件会导入 RVC 并加进下拉；文件名原样显示，不做翻译，只有内置的洛天依、初音未来用中文名。
 
 ## 工作原理
 

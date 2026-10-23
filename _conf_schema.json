@@ -1,4 +1,10 @@
 {
+  "models_dir": {
+    "description": "音色目录",
+    "type": "string",
+    "hint": "把 .pth 和 .index 放进这个目录，重载插件后自动导入 RVC 并出现在音色下拉。",
+    "default": ""
+  },
   "model": {
     "description": "唱歌音色",
     "type": "string",
@@ -6,25 +12,13 @@
     "default": "auto",
     "options": [
       "auto",
-      "guanguanV1",
-      "keruanV1",
-      "kikiV1",
       "luotianyi",
-      "miku",
-      "tomori",
-      "uzuki",
-      "youzhanv2-xi"
+      "miku"
     ],
     "labels": [
       "自动（按语种）",
-      "关关（guanguanV1）",
-      "可软（keruanV1）",
-      "琪琪（kikiV1）",
       "洛天依（luotianyi）",
-      "初音未来（miku）",
-      "高松灯（tomori）",
-      "卯月（uzuki）",
-      "有沾 v2（youzhanv2-xi）"
+      "初音未来（miku）"
     ]
   },
   "pitch_mode": {
