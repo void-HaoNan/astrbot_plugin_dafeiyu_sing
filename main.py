@@ -4,6 +4,7 @@
   - 命令和模型工具都只负责“接单”，立刻回一句，然后扔给后台任务
   - 后台一次只跑一首，后面的排队并明确告诉用户排上了
   - 子进程降优先级，避免分离/换声时把聊天的 CPU 抢光
+  - RVC 目录自动找，设置页只留跟唱歌有关的选项
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -25,6 +27,44 @@ PLUGIN_DIR = Path(__file__).resolve().parent
 PIPELINE = PLUGIN_DIR / "sing_pipeline.py"
 RVC_CONVERT = PLUGIN_DIR / "rvc_convert.py"
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
+
+
+def _detect_root() -> Path | None:
+    """从插件位置往上找机器人根目录：AstrBot/data/plugins/x -> AstrBot 的上一级。"""
+    for parent in PLUGIN_DIR.parents:
+        if parent.name.lower() == "astrbot":
+            return parent.parent
+    return None
+
+
+def _detect_rvc() -> Path | None:
+    env_root = os.environ.get("RVC_ROOT")
+    if env_root and Path(env_root).is_dir():
+        return Path(env_root)
+    root = _detect_root()
+    candidates = []
+    if root:
+        candidates.append(root / "rvc")
+        candidates += [p for p in root.glob("rvc*") if p.is_dir()]
+    for parent in PLUGIN_DIR.parents:
+        candidates.append(parent / "rvc")
+    for cand in candidates:
+        if (cand / "pkg").is_dir():
+            return cand
+    return None
+
+
+def _detect_ffmpeg(root: Path | None) -> Path | None:
+    env_ff = os.environ.get("FFMPEG")
+    if env_ff and Path(env_ff).is_file():
+        return Path(env_ff)
+    if root:
+        for rel in ("bin/ffmpeg.exe", "ffmpeg.exe", "ffmpeg/bin/ffmpeg.exe"):
+            cand = root / rel
+            if cand.is_file():
+                return cand
+    found = shutil.which("ffmpeg")
+    return Path(found) if found else None
 
 
 class DafeiyuSingPlugin(Star):
@@ -46,22 +86,28 @@ class DafeiyuSingPlugin(Star):
         return default if value is None or value == "" else value
 
     def _paths(self) -> dict:
-        rvc_root = str(self._get("rvc_root", "")).strip()
-        root = str(self._get("qqbot_root", "")).strip()
-        if not root and rvc_root:
-            root = str(Path(rvc_root).resolve().parent)
+        root = _detect_root()
+        rvc_root = _detect_rvc()
+        ffmpeg = _detect_ffmpeg(root)
+        pkg = ""
+        if rvc_root:
+            pkgs = sorted(rvc_root.glob("pkg/*/runtime/python.exe"))
+            if pkgs:
+                pkg = str(pkgs[0].parent.parent)
         return {
-            "rvc_root": rvc_root,
-            "rvc_pkg": str(self._get("rvc_pkg", "")).strip(),
-            "ffmpeg": str(self._get("ffmpeg", "")).strip(),
+            "rvc_root": str(rvc_root or ""),
+            "rvc_pkg": pkg,
+            "ffmpeg": str(ffmpeg or ""),
             "rvc_script": str(RVC_CONVERT),
             "work_dir": str(self.out_dir / "work"),
-            "qqbot_root": root,
+            "qqbot_root": str(root or ""),
         }
 
     # ------------------------------------------------------------------ 生命周期
     async def initialize(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
+        paths = self._paths()
+        logger.info(f"[dafeiyu_sing] RVC={paths['rvc_root']} ffmpeg={paths['ffmpeg']}")
         await asyncio.to_thread(self._cleanup)
         self._worker = asyncio.create_task(self._worker_loop())
 
@@ -156,11 +202,13 @@ class DafeiyuSingPlugin(Star):
     async def _run(self, event: AstrMessageEvent, song: str, umo: str) -> None:
         started = time.time()
         out = self.out_dir / f"sing_{int(started * 1000)}.mp3"
-        env = os.environ.copy()
         paths = self._paths()
+        if not paths["rvc_root"]:
+            await self._send(event, "没找到 RVC 目录，插件没法唱。")
+            return
+        env = os.environ.copy()
         env["QQBOT_ROOT"] = paths.get("qqbot_root") or str(PLUGIN_DIR)
         env["DAFEIYU_SING_PATHS"] = json.dumps(paths, ensure_ascii=False)
-        # 别让分离/换声吃满 CPU，聊天优先
         env.setdefault("OMP_NUM_THREADS", "4")
         env.setdefault("MKL_NUM_THREADS", "4")
 
