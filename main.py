@@ -1,10 +1,7 @@
 """大肥鱼唱歌插件：点一首歌，本地分离人声、RVC 换音色、混回伴奏，发一条语音。
 
-唱歌全程在后台跑，前台聊天不受影响：
-  - 命令和模型工具都只负责“接单”，立刻回一句，然后扔给后台任务
-  - 后台一次只跑一首，后面的排队并明确告诉用户排上了
-  - 子进程降优先级，避免分离/换声时把聊天的 CPU 抢光
-  - RVC 目录自动找，设置页只留跟唱歌有关的选项
+只暴露一个模型工具 sing_song：接单、排队、后台合成、发语音。
+不往聊天里塞固定话术——要不要接、怎么回，交给模型按人格自己说。
 """
 
 from __future__ import annotations
@@ -125,61 +122,33 @@ class DafeiyuSingPlugin(Star):
             except OSError:
                 pass
 
-    # ------------------------------------------------------------------ 命令
-    @filter.command("唱歌", alias={"唱一首", "点唱"})
-    async def sing_command(self, event: AstrMessageEvent):
-        song = event.message_str.partition(" ")[2].strip()
-        if not song:
-            yield event.plain_result("要唱哪首？比如：唱歌 起风了")
-            return
-        text = self._accept(event, song)
-        yield event.plain_result(text)
-
-    @filter.command("唱歌音色", alias={"唱歌模型"})
-    async def voice_command(self, event: AstrMessageEvent):
-        model = self._get("model", "auto")
-        yield event.plain_result(f"当前唱歌音色：{model}（填 auto 会按歌曲语种自动挑）")
-
-    @filter.command("唱歌状态", alias={"唱歌队列"})
-    async def status_command(self, event: AstrMessageEvent):
-        if self._busy_with:
-            yield event.plain_result(f"正在唱《{self._busy_with}》，排队的还有 {self._queue.qsize()} 首。")
-        else:
-            yield event.plain_result("现在没在唱，随时可以点。")
-
     # ------------------------------------------------------------------ 工具
     @filter.llm_tool()
     async def sing_song(self, event: AstrMessageEvent, song: str = ""):
         """
-        用本机 RVC 唱一小段歌，后台合成后发语音。用户让你唱歌、点歌时调用；调用后立刻用文字回一句，不要等。
+        用本机 RVC 唱一小段歌，后台合成后把语音发出来。用户让你唱歌、点歌时调用。
+        调用只负责接单，不会替你说话；接单结果（排第几、要不要等冷却）会返回给你，
+        你按自己的人格决定怎么回，不要复述这段说明。
         Args:
             song(string): 歌名，比如 起风了
         """
         song = (song or "").strip()
         if not song:
-            return "没说要唱哪首"
-        text = self._accept(event, song)
-        try:
-            await event.send(event.plain_result(text))
-        except Exception:  # noqa: BLE001
-            pass
-        return text
+            return "用户没说歌名，需要先问唱哪首。"
 
-    # ------------------------------------------------------------------ 接单
-    def _accept(self, event: AstrMessageEvent, song: str) -> str:
         umo = getattr(event, "unified_msg_origin", "") or ""
         cooldown = int(self._get("cooldown_seconds", 30) or 0)
         now = time.time()
         if cooldown and now - self._last.get(umo, 0) < cooldown:
             wait = int(cooldown - (now - self._last.get(umo, 0)))
-            return f"刚唱过，歇 {wait} 秒再来。"
-        self._last[umo] = now
+            return f"还在冷却，{wait} 秒后才能再点，先别答应他。"
 
+        self._last[umo] = now
         queued = (not self._queue.empty()) or bool(self._busy_with)
         self._queue.put_nowait((event, song, umo))
         if queued:
-            return f"好，《{song}》排上了，前面还有 {self._queue.qsize() - 1} 首，唱完就发。"
-        return f"好，去准备《{song}》了，大概半分钟到一分钟，前台照常聊。"
+            return f"《{song}》已排进后台，前面还有 {self._queue.qsize() - 1} 首，要到时会自动发语音。"
+        return f"《{song}》已经接单，后台开始合成，几十秒后会自动把语音发出来。"
 
     # ------------------------------------------------------------------ 后台
     async def _worker_loop(self) -> None:
@@ -204,7 +173,7 @@ class DafeiyuSingPlugin(Star):
         out = self.out_dir / f"sing_{int(started * 1000)}.mp3"
         paths = self._paths()
         if not paths["rvc_root"]:
-            await self._send(event, "没找到 RVC 目录，插件没法唱。")
+            await self._send(event, f"《{song}》没唱成，本机没找到 RVC。")
             return
         env = os.environ.copy()
         env["QQBOT_ROOT"] = paths.get("qqbot_root") or str(PLUGIN_DIR)
@@ -243,7 +212,7 @@ class DafeiyuSingPlugin(Star):
                 return
         except Exception as exc:  # noqa: BLE001
             logger.error(f"[dafeiyu_sing] 启动失败: {exc}")
-            await self._send(event, "伴奏流程没启动起来。")
+            await self._send(event, f"《{song}》的伴奏流程没启动起来。")
             return
 
         text = (raw or b"").decode("utf-8", "ignore")
@@ -259,7 +228,9 @@ class DafeiyuSingPlugin(Star):
         logger.info(f"[dafeiyu_sing] 唱完《{song}》用时 {time.time() - started:.0f}s -> {out.name}")
 
     async def _send(self, event: AstrMessageEvent, text: str) -> None:
+        """只用于失败提示；正常接单和进度都不发固定话术。"""
         try:
             await event.send(event.plain_result(text))
         except Exception:  # noqa: BLE001
             pass
+

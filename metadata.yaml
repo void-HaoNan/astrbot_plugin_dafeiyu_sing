@@ -10,7 +10,7 @@ help: |
     /唱歌音色         看当前用的音色
   也可以直接跟模型说「唱一首 XXX」，会调用 sing_song 工具。
   配置里填 rvc_root（RVC 整合包所在目录）就能用；音色填 RVC 模型名，比如 luotianyi、miku。
-version: 0.1.3
+version: 0.1.4
 author: void-HaoNan
 repo: https://github.com/void-HaoNan/astrbot_plugin_dafeiyu_sing
 astrbot_version: ">=4.10.0"
