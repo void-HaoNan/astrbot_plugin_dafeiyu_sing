@@ -100,11 +100,51 @@ class DafeiyuSingPlugin(Star):
             "qqbot_root": str(root or ""),
         }
 
+    # ------------------------------------------------------------------ 音色
+    def _scan_models(self) -> list[str]:
+        """列出本机 RVC 里已有的音色名，不下载任何东西。"""
+        names: set[str] = set()
+        root = _detect_rvc()
+        if not root:
+            return []
+        for pattern in ("pkg/*/assets/weights/*.pth", "models/*/*.pth", "assets/weights/*.pth"):
+            for pth in root.glob(pattern):
+                if pth.stem and not pth.stem.startswith("."):
+                    names.add(pth.stem)
+        return sorted(names)
+
+    def _sync_schema_models(self) -> None:
+        """把发现的音色写进设置页的下拉选项，省得用户手填名字。"""
+        schema_path = PLUGIN_DIR / "_conf_schema.json"
+        if not schema_path.exists():
+            return
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            return
+        field = schema.get("model")
+        if not isinstance(field, dict):
+            return
+        models = self._scan_models()
+        options = ["auto"] + models
+        labels = ["自动（按语种）"] + models
+        field["options"] = options
+        field["labels"] = labels
+        field["hint"] = "从本机已有的音色里选；列表来自 RVC 目录，不会自动下载。auto 会按歌曲语种自动挑。"
+        try:
+            if json.loads(schema_path.read_text(encoding="utf-8-sig")) == schema:
+                return
+        except (OSError, ValueError):
+            pass
+        schema_path.write_text(json.dumps(schema, ensure_ascii=False, indent=2), encoding="utf-8")
+
     # ------------------------------------------------------------------ 生命周期
     async def initialize(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
         paths = self._paths()
-        logger.info(f"[dafeiyu_sing] RVC={paths['rvc_root']} ffmpeg={paths['ffmpeg']}")
+        models = self._scan_models()
+        self._sync_schema_models()
+        logger.info(f"[dafeiyu_sing] RVC={paths['rvc_root']} ffmpeg={paths['ffmpeg']} 音色={models}")
         await asyncio.to_thread(self._cleanup)
         self._worker = asyncio.create_task(self._worker_loop())
 
@@ -194,7 +234,11 @@ class DafeiyuSingPlugin(Star):
         ]
         model = str(self._get("model", "auto")).strip()
         if model and model != "auto":
-            cmd += ["--model", f"{model}.pth", "--index", f"assets/indices/{model}.index"]
+            if model not in self._scan_models():
+                logger.warning(f"[dafeiyu_sing] 音色 {model} 不存在，回退 auto")
+                model = "auto"
+            else:
+                cmd += ["--model", f"{model}.pth", "--index", f"assets/indices/{model}.index"]
 
         timeout = int(self._get("timeout_seconds", 900) or 900)
         kwargs = {"env": env, "cwd": str(PLUGIN_DIR),
