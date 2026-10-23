@@ -24,6 +24,16 @@ PLUGIN_DIR = Path(__file__).resolve().parent
 PIPELINE = PLUGIN_DIR / "sing_pipeline.py"
 RVC_CONVERT = PLUGIN_DIR / "rvc_convert.py"
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
+MODEL_CN = {
+    "luotianyi": "洛天依",
+    "miku": "初音未来",
+    "tomori": "高松灯",
+    "uzuki": "卯月",
+    "guanguanV1": "关关",
+    "keruanV1": "可软",
+    "kikiV1": "琪琪",
+    "youzhanv2-xi": "有沾 v2",
+}
 
 
 def _detect_root() -> Path | None:
@@ -127,10 +137,10 @@ class DafeiyuSingPlugin(Star):
             return
         models = self._scan_models()
         options = ["auto"] + models
-        labels = ["自动（按语种）"] + models
+        labels = ["自动（按语种）"] + [f"{MODEL_CN[m]}（{m}）" if m in MODEL_CN else m for m in models]
         field["options"] = options
         field["labels"] = labels
-        field["hint"] = "从本机已有的音色里选；列表来自 RVC 目录，不会自动下载。auto 会按歌曲语种自动挑。"
+        field["hint"] = "从本机 RVC 音色中选择；auto 按歌曲语种自动选择。"
         try:
             if json.loads(schema_path.read_text(encoding="utf-8-sig")) == schema:
                 return

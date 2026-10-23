@@ -2,7 +2,7 @@
   "model": {
     "description": "唱歌音色",
     "type": "string",
-    "hint": "从本机已有的音色里选；列表来自 RVC 目录，不会自动下载。auto 会按歌曲语种自动挑。",
+    "hint": "从本机 RVC 音色中选择；auto 按歌曲语种自动选择。",
     "default": "auto",
     "options": [
       "auto",
@@ -17,14 +17,14 @@
     ],
     "labels": [
       "自动（按语种）",
-      "guanguanV1",
-      "keruanV1",
-      "kikiV1",
-      "luotianyi",
-      "miku",
-      "tomori",
-      "uzuki",
-      "youzhanv2-xi"
+      "关关（guanguanV1）",
+      "可软（keruanV1）",
+      "琪琪（kikiV1）",
+      "洛天依（luotianyi）",
+      "初音未来（miku）",
+      "高松灯（tomori）",
+      "卯月（uzuki）",
+      "有沾 v2（youzhanv2-xi）"
     ]
   },
   "pitch_mode": {
