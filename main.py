@@ -77,6 +77,17 @@ class DafeiyuSingPlugin(Star):
         self._worker: asyncio.Task | None = None
         self._busy_with: str = ""
         self._last: dict[str, float] = {}
+        self._installer = None
+        try:
+            from .installer import RvcInstaller
+
+            root = _detect_root() or PLUGIN_DIR
+            self._installer = RvcInstaller(root / "rvc", PLUGIN_DIR, logger.info)
+            context.register_web_api("/astrbot_plugin_dafeiyu_sing/rvc-status", self._rvc_status, ["GET"], "RVC 安装状态")
+            context.register_web_api("/astrbot_plugin_dafeiyu_sing/rvc-install", self._rvc_install, ["POST"], "安装 RVC")
+            context.register_web_api("/astrbot_plugin_dafeiyu_sing/rvc-log", self._rvc_log, ["GET"], "RVC 安装日志")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[dafeiyu_sing] 安装器不可用: {exc}")
 
     # ------------------------------------------------------------------ 配置
     def _get(self, key: str, default=None):
@@ -181,6 +192,26 @@ class DafeiyuSingPlugin(Star):
     async def terminate(self):
         if self._worker:
             self._worker.cancel()
+
+    # ------------------------------------------------------------------ 安装器
+    async def _rvc_status(self):
+        if not self._installer:
+            return {"ready": False, "state": "unavailable"}
+        return self._installer.status()
+
+    async def _rvc_install(self):
+        if not self._installer:
+            return {"ok": False, "message": "安装器不可用"}
+        return self._installer.start()
+
+    async def _rvc_log(self):
+        if not self._installer:
+            return {"lines": []}
+        try:
+            lines = self._installer.log_file.read_text(encoding="utf-8", errors="ignore").splitlines()[-150:]
+        except OSError:
+            lines = []
+        return {"lines": lines}
 
     def _cleanup(self) -> None:
         keep_hours = int(self._get("out_keep_hours", 24) or 24)

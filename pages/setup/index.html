@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RVC 安装</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0b1016; color:#dbe4ee; font:14px/1.5 "Microsoft YaHei",system-ui,sans-serif; }
+  .wrap { padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .card { background:#121a24; border:1px solid #1d2836; border-radius:10px; padding:16px; }
+  .card h3 { margin:0 0 8px; font-size:15px; }
+  .muted { color:#7d8b9c; font-size:12px; word-break:break-all; }
+  .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; }
+  .ok { background:#123a2a; color:#7ce0a8; } .no { background:#3a1a1a; color:#ff9b9b; } .run { background:#3a3312; color:#ffd479; }
+  button { margin-top:10px; padding:6px 14px; border-radius:8px; border:1px solid #2a3748; background:#1a2634; color:#dbe4ee; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre { margin:0; background:#0e141c; border:1px solid #1d2836; border-radius:10px; padding:12px; height:240px; overflow:auto; font-size:12px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h3>RVC 唱歌环境 <span id="badge" class="badge no">检测中</span></h3>
+    <div class="muted" id="path">-</div>
+    <button id="btn" onclick="install()">安装 / 修复</button>
+    <div class="muted" style="margin-top:8px">安装官方源码和依赖，首次要下载几 GB；装好后唱歌插件会自动认到。</div>
+  </div>
+  <div>
+    <div class="muted" style="margin-bottom:6px">安装日志</div>
+    <pre id="log">读取中…</pre>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const bridge = window.AstrBotPluginPage;
+function badge(text, cls) { $('badge').textContent = text; $('badge').className = 'badge ' + cls; }
+async function refresh() {
+  if (!bridge) { $('log').textContent = '没有检测到页面桥接，请从 AstrBot 插件页进入'; return; }
+  try {
+    const r = await bridge.apiGet('rvc-status');
+    const d = (r && r.data) ? r.data : (r || {});
+    $('path').textContent = d.path || '-';
+    if (d.ready) badge('已安装', 'ok');
+    else if (d.state === 'running') badge('安装中', 'run');
+    else badge('未安装', 'no');
+    $('btn').disabled = d.state === 'running';
+    const lr = await bridge.apiGet('rvc-log');
+    const ld = (lr && lr.data) ? lr.data : (lr || {});
+    const lines = ld.lines || [];
+    $('log').textContent = lines.length ? lines.join('\n') : '还没有日志';
+    $('log').scrollTop = $('log').scrollHeight;
+  } catch (e) { $('log').textContent = '读取失败：' + e.message; }
+}
+async function install() {
+  if (!confirm('确定安装 RVC？会下载几 GB，耗时较长。')) return;
+  try {
+    const r = await bridge.apiPost('rvc-install', {});
+    const d = (r && r.data) ? r.data : (r || {});
+    if (d.ok === false) alert(d.message || '启动失败');
+    refresh();
+  } catch (e) { alert('启动失败：' + e.message); }
+}
+window.addEventListener('DOMContentLoaded', () => { refresh(); setInterval(refresh, 4000); });
+</script>
+</body>
+</html>
