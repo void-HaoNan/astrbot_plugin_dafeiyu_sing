@@ -218,6 +218,10 @@ class DafeiyuSingPlugin(Star):
             "--out", str(out),
             "--max-seconds", str(int(self._get("max_seconds", 30) or 30)),
             "--pitch", str(int(self._get("pitch", 0) or 0)),
+            "--pitch-mode", str(self._get("pitch_mode", "auto")),
+            "--f0-method", str(self._get("f0_method", "rmvpe")),
+            "--index-rate", str(float(self._get("index_rate", 0.55))),
+            "--protect", str(float(self._get("protect", 0.45))),
         ]
         model = str(self._get("model", "auto")).strip()
         if model and model != "auto":

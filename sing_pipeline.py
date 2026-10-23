@@ -280,10 +280,12 @@ def cut_pair(vocals: Path, inst: Path, start: float, seconds: int) -> tuple[Path
     return v, i
 
 
-def convert(vocals: Path, model: str, index: str, out: Path, pitch: int) -> None:
+def convert(vocals: Path, model: str, index: str, out: Path, pitch: int,
+            f0_method: str = "rmvpe", index_rate: float = 0.55, protect: float = 0.45) -> None:
     subprocess.run(
         [str(RVC_PY), str(RVC_SCRIPT), "--input", str(vocals), "--output", str(out),
-         "--model", model, "--index", index, "--pitch", str(pitch)],
+         "--model", model, "--index", index, "--pitch", str(pitch),
+         "--f0-method", f0_method, "--index-rate", str(index_rate), "--protect", str(protect)],
         check=True, cwd=str(RVC_DIR),
     )
 
@@ -302,6 +304,36 @@ def mix(vocals: Path, inst: Path, out: Path) -> None:
         ],
         check=True,
     )
+
+
+def detect_median_f0(vocals: Path) -> float:
+    """用 RVC runtime 里的 librosa 估人声中位基频，失败就当 0。"""
+    probe = Path(__file__).with_name("pitch_probe.py")
+    try:
+        out = subprocess.run(
+            [str(RVC_PY), str(probe), str(vocals)],
+            capture_output=True, text=True, timeout=180,
+        )
+        for line in (out.stdout or "").splitlines():
+            line = line.strip()
+            if re.fullmatch(r"[0-9.]+", line):
+                return float(line)
+    except Exception:  # noqa: BLE001
+        pass
+    return 0.0
+
+
+def auto_transpose(f0: float) -> int:
+    """按说话/唱歌的基频给一个起始升降调：男声升 12，偏低男声升 7，女声不动。"""
+    if f0 <= 0:
+        return 0
+    if f0 < 175:
+        return 12
+    if f0 < 200:
+        return 3
+    if f0 < 230:
+        return 1
+    return 0
 
 
 def detect_language(song_id: int) -> str:
@@ -340,7 +372,11 @@ def main() -> int:
     ap.add_argument("--model", default="", help="指定模型文件；留空按语种自动选")
     ap.add_argument("--index", default="", help="配合 --model 用")
     ap.add_argument("--lang", default="auto", choices=["auto", "zh", "ja", "unknown"])
-    ap.add_argument("--pitch", type=int, default=0)
+    ap.add_argument("--pitch", type=int, default=0, help="手动升降调，叠加在自动值上")
+    ap.add_argument("--pitch-mode", default="auto", choices=["auto", "off"])
+    ap.add_argument("--f0-method", default="rmvpe", choices=["rmvpe", "fcpe", "pm", "harvest", "crepe"])
+    ap.add_argument("--index-rate", type=float, default=0.55)
+    ap.add_argument("--protect", type=float, default=0.45)
     ap.add_argument("--max-seconds", type=int, default=45)
     args = ap.parse_args()
 
@@ -403,8 +439,16 @@ def main() -> int:
     vcut, icut = cut_pair(vocals, inst, start, args.max_seconds)
     log(f"从第 {start:.0f} 秒开始，取 {args.max_seconds} 秒")
 
+    transpose = args.pitch
+    if args.pitch_mode == "auto":
+        f0 = detect_median_f0(vocals)
+        auto = auto_transpose(f0)
+        transpose += auto
+        log(f"人声基频≈{f0:.0f}Hz，自动升降 {auto:+d}，合计 {transpose:+d}")
+
     sung = WORK / "vocals_rvc.wav"
-    convert(vcut, model, index, sung, args.pitch)
+    convert(vcut, model, index, sung, transpose,
+            f0_method=args.f0_method, index_rate=args.index_rate, protect=args.protect)
     log("换声完成")
 
     out = Path(args.out)

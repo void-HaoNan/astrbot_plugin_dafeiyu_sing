@@ -5,10 +5,18 @@
     "hint": "填 RVC 模型名，比如 luotianyi、miku；auto 会按歌曲语种自动挑。",
     "default": "auto"
   },
+  "pitch_mode": {
+    "description": "升降调方式",
+    "type": "string",
+    "hint": "auto：自动听人声高低再决定升多少，男声会自动升 12 个半音左右；off：只用下面的手动手动值。",
+    "options": ["auto", "off"],
+    "labels": ["自动", "手动"],
+    "default": "auto"
+  },
   "pitch": {
-    "description": "升降调（半音）",
+    "description": "手动升降调（半音）",
     "type": "int",
-    "hint": "男声转女声一般 +12，女声转女声 0。",
+    "hint": "自动模式下这是叠加值，唱男声歌觉得还不够高就加 2 到 4。",
     "default": 0
   },
   "max_seconds": {
@@ -16,6 +24,28 @@
     "type": "int",
     "hint": "5 到 60，太长会唱很久。",
     "default": 30
+  },
+  "f0_method": {
+    "description": "音高提取算法",
+    "type": "string",
+    "hint": "rmvpe 最稳；高音多、气声多的歌可以换 fcpe 试试。",
+    "options": ["rmvpe", "fcpe", "pm", "harvest", "crepe"],
+    "labels": ["rmvpe（推荐）", "fcpe", "pm", "harvest", "crepe"],
+    "default": "rmvpe"
+  },
+  "index_rate": {
+    "description": "音色相似度",
+    "type": "float",
+    "hint": "0 到 1，越高越像目标音色，但太高会有电音；高音容易破就调到 0.5 左右。",
+    "slider": {"min": 0, "max": 1, "step": 0.05},
+    "default": 0.55
+  },
+  "protect": {
+    "description": "气声保护",
+    "type": "float",
+    "hint": "0 到 0.5，高音和气声容易炸就调高一点，0.45 左右比较稳。",
+    "slider": {"min": 0, "max": 0.5, "step": 0.05},
+    "default": 0.45
   },
   "cooldown_seconds": {
     "description": "同一会话冷却（秒）",
