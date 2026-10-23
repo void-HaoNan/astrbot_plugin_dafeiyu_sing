@@ -1,0 +1,62 @@
+{
+  "qqbot_root": {
+    "description": "机器人根目录",
+    "type": "string",
+    "hint": "放着 rvc、bin 的目录，例如 D:/QQBot。留空会根据 rvc_root 推出来。",
+    "default": ""
+  },
+  "rvc_root": {
+    "description": "RVC 目录",
+    "type": "string",
+    "hint": "里面要有 pkg/<整合包>/runtime/python.exe、models、model_map.json。必填。",
+    "default": ""
+  },
+  "rvc_pkg": {
+    "description": "RVC 整合包目录",
+    "type": "string",
+    "hint": "留空自动在 rvc/pkg 下找。",
+    "default": ""
+  },
+  "ffmpeg": {
+    "description": "ffmpeg.exe 路径",
+    "type": "string",
+    "hint": "留空自动找 bin/ffmpeg.exe 或 PATH 里的 ffmpeg。",
+    "default": ""
+  },
+  "model": {
+    "description": "唱歌音色",
+    "type": "string",
+    "hint": "填 RVC 模型名，比如 luotianyi、miku；填 auto 按歌曲语种自动挑（读 model_map.json）。",
+    "default": "auto"
+  },
+  "pitch": {
+    "description": "升降调（半音）",
+    "type": "int",
+    "hint": "男声转女声通常 +12，女声转女声 0。",
+    "default": 0
+  },
+  "max_seconds": {
+    "description": "每次唱多长（秒）",
+    "type": "int",
+    "hint": "5 到 60，太长会唱很久。",
+    "default": 30
+  },
+  "timeout_seconds": {
+    "description": "整首的超时（秒）",
+    "type": "int",
+    "hint": "分离加换声比较慢，默认 900 秒。",
+    "default": 900
+  },
+  "cooldown_seconds": {
+    "description": "同一个会话的冷却（秒）",
+    "type": "int",
+    "hint": "防止连着点歌，默认 30。",
+    "default": 30
+  },
+  "out_keep_hours": {
+    "description": "成品保留小时数",
+    "type": "int",
+    "hint": "过期的 mp3 会自动删，默认 24 小时。",
+    "default": 24
+  }
+}

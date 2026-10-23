@@ -1,0 +1,21 @@
+name: astrbot_plugin_dafeiyu_sing
+display_name: 大肥鱼唱歌
+short_desc: 本地 RVC 点歌翻唱：分离人声、换音色、混伴奏，发一条语音
+desc: >-
+  点一首歌，在本机把人声分离出来、用 RVC 换成你指定的音色，再和伴奏混回去发语音。
+  不依赖云端、不按次计费，跑在自己的机器上；没有 GPU 也能慢慢唱。
+help: |
+  命令：
+    /唱歌 歌名        点一首歌，默认唱 30 秒
+    /唱歌音色         看当前用的音色
+  也可以直接跟模型说「唱一首 XXX」，会调用 sing_song 工具。
+  配置里填 rvc_root（RVC 整合包所在目录）就能用；音色填 RVC 模型名，比如 luotianyi、miku。
+version: 0.1.0
+author: void-HaoNan
+repo: https://github.com/void-HaoNan/astrbot_plugin_dafeiyu_sing
+astrbot_version: ">=4.10.0"
+tags:
+  - 唱歌
+  - 翻唱
+  - RVC
+  - 语音
